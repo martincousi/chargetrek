@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@600&display=swap">
+<title>ChargeTrek (browser version)</title>
+<style>
+  /* Layout follows the packing game: board on the left, controls and scores on the right; stacks on phones. */
+  :root { --bg: #ffffff; --fg: #111827; --muted: #5f6b7a; --line: #dfe3ea; --accent: #003DA5; --accent-fg: #ffffff;
+          --surface: #f6f8fb; --bad: #c0392b; --display: "Space Grotesk", system-ui, sans-serif;
+          --body: Inter, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0f141c; --fg: #e8ecf2; --muted: #9aa6b6;
+          --line: #2a3443; --accent: #7aa7ff; --accent-fg: #0f141c; --surface: #161d28; --bad: #ff7b6b; color-scheme: dark; } }
+  :root[data-theme="dark"] { --bg: #0f141c; --fg: #e8ecf2; --muted: #9aa6b6; --line: #2a3443; --accent: #7aa7ff;
+          --accent-fg: #0f141c; --surface: #161d28; --bad: #ff7b6b; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--body); color: var(--fg); background: var(--bg);
+         padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+         padding-block: 8px 24px; }
+  header { padding-block: 10px 4px; }
+  header h1 { margin: 0; font-family: var(--display); font-size: 24px; color: var(--accent); font-weight: 600; text-wrap: balance; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 72ch; line-height: 1.5; }
+  header p.credit { color: var(--fg); }
+  main { display: flex; flex-wrap: wrap; gap: 28px; padding-block: 12px; }
+  .panel { display: flex; flex-direction: column; gap: 10px; min-width: 0; flex: 1 1 320px; max-width: 660px; }
+  .side { max-width: 460px; }
+  canvas { display: block; max-width: 100%; width: 100%; height: auto; }
+  #board { border: 2px solid var(--accent); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  select, button { font: inherit; font-size: 14px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px;
+                   background: var(--surface); color: var(--fg); cursor: pointer; max-width: 100%; }
+  button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+  button.warn { border-color: var(--bad); color: var(--bad); }
+  button:disabled { opacity: .4; cursor: default; }
+  .stats { display: grid; grid-template-columns: auto auto; gap: 2px 14px; font-size: 14px; justify-content: start; }
+  .stats b { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  #msg { min-height: 44px; font-size: 14px; color: var(--accent); line-height: 1.5; }
+  #msg.bad { color: var(--bad); }
+  .help { font-size: 13px; color: var(--muted); max-width: 62ch; line-height: 1.5; }
+  .help b { color: var(--fg); }
+  .help p { margin: 0 0 6px; }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; }
+  .pad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; max-width: 420px; }
+  .pad button { height: 42px; padding: 0 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+  .sw { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 4px; border-top: 2px solid; }
+  footer { font-size: 12px; color: var(--muted); max-width: 90ch; line-height: 1.5; border-top: 1px solid var(--line); padding-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>ChargeTrek (browser version)</h1>
+  <p class="credit">Game design by Houalef et al.; this is an independent browser version.
+     Houalef A-R, Mendoza JE, Delavernhe F, Senouci S-M (2026). ChargeTrek: A gamified visual learning framework for
+     EV charging in V2G systems. <i>Applied Energy</i> 414:127853.
+     <a href="https://doi.org/10.1016/j.apenergy.2026.127853">doi:10.1016/j.apenergy.2026.127853</a></p>
+  <p>An electric car is plugged in at home from arrival to departure. Every 15 minutes, charge, stay idle, or
+     discharge (sell energy back to the grid). Pay as little as possible, and leave with exactly the target state
+     of charge (the yellow cell). Prices are synthetic.</p>
+</header>
+<main>
+  <div class="panel">
+    <canvas id="board" width="640" height="440" aria-label="Time by state-of-charge grid"></canvas>
+    <canvas id="prices" width="640" height="120" aria-label="Forecast and real-time prices"></canvas>
+    <div class="legend" id="legend">
+      <span><span class="sw" style="border-color:#9CA3AF"></span>day-ahead forecast</span>
+      <span><span class="sw" style="border-color:var(--accent)"></span>real-time price (revealed)</span>
+      <span class="ref" hidden><span class="sw" style="border-color:#E69F00;border-top-style:dashed"></span>charge immediately</span>
+      <span class="ref" hidden><span class="sw" style="border-color:#CC79A7;border-top-style:dotted"></span>stepwise replanning</span>
+      <span class="ref" hidden><span class="sw" style="border-color:#0072B2;border-top-width:3px"></span>optimum</span>
+    </div>
+    <div id="msg" role="status"></div>
+  </div>
+  <div class="panel side">
+    <div class="row">
+      <select id="driver" aria-label="Driver"></select>
+      <select id="day" aria-label="Day"></select>
+    </div>
+    <div class="row">
+      <button id="undo">Undo</button>
+      <button id="restart">Restart</button>
+      <button id="next">Next day</button>
+      <button id="refs" disabled>Show reference paths</button>
+    </div>
+    <div class="pad" aria-label="Actions">
+      <button data-act="charge">Charge &#8599;</button>
+      <button data-act="idle">Idle &rarr;</button>
+      <button data-act="discharge">Discharge &#8600;</button>
+    </div>
+    <div class="label">Now</div>
+    <div class="stats">
+      <span>Time</span><b id="s-time">-</b>
+      <span>State of charge</span><b id="s-soc">-</b>
+      <span>Price now (forecast / real)</span><b id="s-price">-</b>
+      <span>Net cost so far</span><b id="s-cost">-</b>
+      <span>Reward (paper, Eq. 6)</span><b id="s-reward">-</b>
+    </div>
+    <div class="label">Same day, same driver</div>
+    <div class="stats">
+      <span>Charge immediately (typical driver)</span><b id="s-imm">-</b>
+      <span>Stepwise replanning (forecasts only)</span><b id="s-step">-</b>
+      <span>Optimum (perfect information)</span><b id="s-opt">-</b>
+    </div>
+    <div class="help">
+      <p><b>Keys:</b> <kbd>&uarr;</kbd> or <kbd>C</kbd> charge, <kbd>&rarr;</kbd>, <kbd>Space</kbd> or <kbd>I</kbd> idle,
+         <kbd>&darr;</kbd> or <kbd>D</kbd> discharge, <kbd>Z</kbd> undo, <kbd>R</kbd> restart, <kbd>N</kbd> / <kbd>P</kbd>
+         next / previous day, <kbd>O</kbd> reference paths (after departure).</p>
+      <p><b>Grid:</b> time runs left to right in 15-minute columns, state of charge bottom (0 %) to top (100 %).
+         Column colour is the day-ahead forecast: green cheap, red expensive. Once a column's real-time price is known,
+         it turns bluish if the real price was above the forecast, and fades as the forecast error grows.
+         The outlined cells ahead are where each action would take you; red outline: the target could no longer be met.</p>
+      <p><b>Battery:</b> charging adds 2 % per step below 80 % and 1 % above; discharging removes 2 % per step and never
+         goes below 20 %. A step that would pass the target stops at it. With 80 % efficiency, 1 % stored costs
+         0.94 kWh from the grid and 1 % discharged sells 0.6 kWh.</p>
+      <p><b>Money bar</b> (right of the grid): net cost grows upward in red, net revenue downward in green.</p>
+    </div>
+  </div>
+</main>
+<footer>
+  The game design, battery model, driver profiles (Table 1) and reward (Eqs. 3 to 6) are from Houalef et al. (2026),
+  published open access under CC BY 4.0. This page is not the authors' release and uses none of their code or data:
+  prices are generated by a seeded model with a daily shape, because the paper's CAISO price data are not shipped
+  here. Assumptions and deviations are listed in README.md.
+</footer>
+<script src="engine.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
