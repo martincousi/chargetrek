@@ -215,6 +215,7 @@
   // ---------------------------------------------------------------- input
   const KEYS = { ArrowUp: "charge", c: "charge", ArrowRight: "idle", " ": "idle", i: "idle", ArrowDown: "discharge", d: "discharge" };
   document.addEventListener("keydown", ev => {
+    if (ev.target.tagName === "A" && ev.key === "Enter") return;   // follow a focused link (site navigation)
     if (ev.target.tagName === "SELECT" || ev.target.tagName === "BUTTON" && ev.key === " " || !game) return;
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
