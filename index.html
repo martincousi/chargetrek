@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Space+Grotesk:wght@600&display=swap">
 <title>ChargeTrek</title>
 <style>
-  /* Layout follows the packing game: board on the left, controls and scores on the right; stacks on phones. */
+  /* Layout follows the games' shared conventions: board on the left, scores and actions on the right; stacks on phones. */
   :root { --bg: #ffffff; --fg: #111827; --muted: #5f6b7a; --line: #dfe3ea; --accent: #003DA5; --accent-fg: #ffffff;
           --surface: #f6f8fb; --bad: #c0392b; --display: "Space Grotesk", system-ui, sans-serif;
           --body: Inter, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
@@ -22,7 +22,6 @@
   header { padding-block: 10px 4px; }
   header h1 { margin: 0; font-family: var(--display); font-size: 24px; color: var(--accent); font-weight: 600; text-wrap: balance; }
   header p { margin: 4px 0 0; color: var(--muted); font-size: 14px; max-width: 72ch; line-height: 1.5; }
-  header p.credit { color: var(--fg); }
   main { display: flex; flex-wrap: wrap; gap: 28px; padding-block: 12px; }
   .panel { display: flex; flex-direction: column; gap: 10px; min-width: 0; flex: 1 1 320px; max-width: 660px; }
   .side { max-width: 460px; }
@@ -47,7 +46,15 @@
   .pad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; max-width: 420px; }
   .pad button { height: 42px; padding: 0 4px; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
-  .sw { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 4px; border-top: 2px solid; }
+  .ln { display: inline-block; width: 18px; height: 0; vertical-align: middle; margin-right: 4px; border-top: 2px solid; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+  .replay[hidden] { display: none; }
+  .replay { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .replay .row { gap: 6px; }
+  #rp-scrub { width: 100%; margin: 0; accent-color: var(--accent); }
+  #rp-line { font-size: 13px; font-variant-numeric: tabular-nums; }
+  footer p { margin: 0 0 6px; }
+  footer a { color: var(--accent); }
   footer { font-size: 12px; color: var(--muted); max-width: 90ch; line-height: 1.5; border-top: 1px solid var(--line); padding-top: 10px; }
   /* Links back to the main site and the list of games */
   nav.crumbs { font-size: 13px; color: var(--muted); padding-top: 8px; }
@@ -59,61 +66,87 @@
 <header>
 <nav class="crumbs" aria-label="Site"><a href="https://martincousi.github.io/">&larr; Martin Cousineau</a> &middot; <a href="https://martincousi.github.io/games/">All games</a></nav>
   <h1>ChargeTrek</h1>
-  <p class="credit">Game design by Houalef et al.; this is an independent browser version.
-     Houalef A-R, Mendoza JE, Delavernhe F, Senouci S-M (2026). ChargeTrek: A gamified visual learning framework for
-     EV charging in V2G systems. <i>Applied Energy</i> 414:127853.
-     <a href="https://doi.org/10.1016/j.apenergy.2026.127853">doi:10.1016/j.apenergy.2026.127853</a></p>
   <p>An electric car is plugged in at home from arrival to departure. Every 15 minutes, charge, stay idle, or
-     discharge (sell energy back to the grid). Pay as little as possible, and leave with exactly the target state
-     of charge (the yellow cell). Prices are synthetic.</p>
+     discharge (sell energy back to the grid). Leave with exactly the target state of charge (the yellow cell);
+     the score is the net cost of the energy bought and sold, the lower the better. Prices are synthetic.</p>
 </header>
 <main>
   <div class="panel">
-    <canvas id="board" width="640" height="440" aria-label="Time by state-of-charge grid"></canvas>
-    <canvas id="prices" width="640" height="120" aria-label="Forecast and real-time prices"></canvas>
-    <div class="legend" id="legend">
-      <span><span class="sw" style="border-color:#9CA3AF"></span>day-ahead forecast</span>
-      <span><span class="sw" style="border-color:var(--accent)"></span>real-time price (revealed)</span>
-      <span class="ref" hidden><span class="sw" style="border-color:#E69F00;border-top-style:dashed"></span>charge immediately</span>
-      <span class="ref" hidden><span class="sw" style="border-color:#CC79A7;border-top-style:dotted"></span>stepwise replanning</span>
-      <span class="ref" hidden><span class="sw" style="border-color:#0072B2;border-top-width:3px"></span>optimum</span>
-    </div>
-    <div id="msg" role="status"></div>
-  </div>
-  <div class="panel side">
     <div class="row">
       <select id="driver" aria-label="Driver"></select>
       <select id="day" aria-label="Day"></select>
+      <button id="next" title="Next day (N)">Next day</button>
+      <button id="restart" title="Restart (R)">Restart</button>
+      <button id="undo" title="Undo (Z)">Undo</button>
+    </div>
+    <canvas id="board" width="640" height="440" aria-label="Time by state-of-charge grid"></canvas>
+    <div id="msg" role="status"></div>
+    <div id="replay" class="replay" hidden aria-label="Replay">
+      <div class="row">
+        <select id="rp-which" aria-label="Watch (up and down arrows)">
+          <option value="you">Watch: Your game</option>
+          <option value="opt">Watch: Optimum</option>
+          <option value="imm">Watch: Charge immediately</option>
+          <option value="step">Watch: Stepwise replanning</option>
+        </select>
+        <button id="rp-start" title="Start (Home)" aria-label="Start (Home)">&#x21E4; Start</button>
+        <button id="rp-back" title="One step back (Left arrow; Shift: 10 steps)" aria-label="One step back (Left arrow; Shift: 10 steps)">&#x2190; Back</button>
+        <button id="rp-play" title="Play (Space or K)" aria-label="Play (Space or K)">&#x25B6; Play</button>
+        <button id="rp-fwd" title="One step forward (Right arrow; Shift: 10 steps)" aria-label="One step forward (Right arrow; Shift: 10 steps)">Forward &#x2192;</button>
+        <button id="rp-end" title="End (End)" aria-label="End (End)">End &#x21E5;</button>
+        <select id="rp-speed" aria-label="Replay speed (- and +)">
+          <option value="2">2 steps/s</option>
+          <option value="4">4 steps/s</option>
+          <option value="8" selected>8 steps/s</option>
+          <option value="16">16 steps/s</option>
+          <option value="32">32 steps/s</option>
+        </select>
+        <button id="rp-close" title="Close (Esc or W)" aria-label="Close (Esc or W)">&#x2715; Close</button>
+      </div>
+      <input id="rp-scrub" type="range" min="0" max="0" step="1" value="0" aria-label="Replay step">
+      <div id="rp-line"><span id="rp-sw" class="sw"></span><span id="rp-text"></span></div>
+    </div>
+    <canvas id="prices" width="640" height="120" aria-label="Forecast and real-time prices"></canvas>
+    <div class="legend" id="legend">
+      <span><span class="ln" style="border-color:#9CA3AF"></span>day-ahead forecast</span>
+      <span><span class="ln" style="border-color:var(--accent)"></span>real-time price (revealed)</span>
+      <span class="ref" hidden><span class="ln" style="border-color:#003DA5"></span>your path</span>
+      <span class="ref" hidden><span class="ln" style="border-color:#0072B2;border-top-width:3px"></span>optimum</span>
+      <span class="ref" hidden><span class="ln" style="border-color:#E69F00;border-top-style:dashed"></span>charge immediately</span>
+      <span class="ref" hidden><span class="ln" style="border-color:#CC79A7;border-top-style:dotted"></span>stepwise replanning</span>
+    </div>
+  </div>
+  <div class="panel side">
+    <div class="label">Your game</div>
+    <div class="stats">
+      <span>Net cost (lower is better)</span><b id="s-cost">-</b>
+      <span>Time</span><b id="s-time">-</b>
+      <span>State of charge</span><b id="s-soc">-</b>
+      <span>Price now (forecast / real)</span><b id="s-price">-</b>
+      <span>Reward (paper, Eq. 6)</span><b id="s-reward">-</b>
+    </div>
+    <div class="label">References on this instance</div>
+    <div class="stats">
+      <span><span class="sw" style="background:#0072B2"></span>Optimum (perfect information)</span><b id="s-opt">-</b>
+      <span><span class="sw" style="background:#E69F00"></span>Charge immediately</span><b id="s-imm">-</b>
+      <span><span class="sw" style="background:#CC79A7"></span>Stepwise replanning</span><b id="s-step">-</b>
     </div>
     <div class="row">
-      <button id="undo">Undo</button>
-      <button id="restart">Restart</button>
-      <button id="next">Next day</button>
-      <button id="refs" disabled>Show reference paths</button>
+      <button id="watch" title="Watch replays (W)">Watch replays</button>
+      <button id="refs" title="Show references (O)">Show references</button>
     </div>
     <div class="pad" aria-label="Actions">
       <button data-act="charge">Charge &#8599;</button>
       <button data-act="idle">Idle &rarr;</button>
       <button data-act="discharge">Discharge &#8600;</button>
     </div>
-    <div class="label">Now</div>
-    <div class="stats">
-      <span>Time</span><b id="s-time">-</b>
-      <span>State of charge</span><b id="s-soc">-</b>
-      <span>Price now (forecast / real)</span><b id="s-price">-</b>
-      <span>Net cost so far</span><b id="s-cost">-</b>
-      <span>Reward (paper, Eq. 6)</span><b id="s-reward">-</b>
-    </div>
-    <div class="label">Same day, same driver</div>
-    <div class="stats">
-      <span>Charge immediately (typical driver)</span><b id="s-imm">-</b>
-      <span>Stepwise replanning (forecasts only)</span><b id="s-step">-</b>
-      <span>Optimum (perfect information)</span><b id="s-opt">-</b>
-    </div>
     <div class="help">
       <p><b>Keys:</b> <kbd>&uarr;</kbd> or <kbd>C</kbd> charge, <kbd>&rarr;</kbd>, <kbd>Space</kbd> or <kbd>I</kbd> idle,
          <kbd>&darr;</kbd> or <kbd>D</kbd> discharge, <kbd>Z</kbd> undo, <kbd>R</kbd> restart, <kbd>N</kbd> / <kbd>P</kbd>
-         next / previous day, <kbd>O</kbd> reference paths (after departure).</p>
+         next / previous day, <kbd>W</kbd> watch replays, <kbd>O</kbd> show references.
+         In the replay: <kbd>Space</kbd> or <kbd>K</kbd> play / pause, <kbd>&larr;</kbd> <kbd>&rarr;</kbd> one step
+         (with <kbd>Shift</kbd>: 10), <kbd>Home</kbd> <kbd>End</kbd> start / end, <kbd>&uarr;</kbd> <kbd>&darr;</kbd>
+         previous / next in &ldquo;Watch&rdquo;, <kbd>-</kbd> <kbd>+</kbd> slower / faster, <kbd>Esc</kbd> or <kbd>W</kbd> close.</p>
       <p><b>Grid:</b> time runs left to right in 15-minute columns, state of charge bottom (0 %) to top (100 %).
          Column colour is the day-ahead forecast: green cheap, red expensive. Once a column's real-time price is known,
          it turns bluish if the real price was above the forecast, and fades as the forecast error grows.
@@ -122,14 +155,21 @@
          goes below 20 %. A step that would pass the target stops at it. With 80 % efficiency, 1 % stored costs
          0.94 kWh from the grid and 1 % discharged sells 0.6 kWh.</p>
       <p><b>Money bar</b> (right of the grid): net cost grows upward in red, net revenue downward in green.</p>
+      <p><b>References:</b> the optimum is the cheapest schedule had all real-time prices been known in advance.
+         Charge immediately charges at once up to the target, then idles (the typical driver).
+         Stepwise replanning re-plans at each step with the real price now and the forecasts afterwards.</p>
     </div>
   </div>
 </main>
 <footer>
-  The game design, battery model, driver profiles (Table 1) and reward (Eqs. 3 to 6) are from Houalef et al. (2026),
+  <p>Game design by Houalef et al.; this is an independent browser version.
+     Houalef A-R, Mendoza JE, Delavernhe F, Senouci S-M (2026). ChargeTrek: A gamified visual learning framework for
+     EV charging in V2G systems. <i>Applied Energy</i> 414:127853.
+     <a href="https://doi.org/10.1016/j.apenergy.2026.127853">doi:10.1016/j.apenergy.2026.127853</a></p>
+  <p>The game design, battery model, driver profiles (Table 1) and reward (Eqs. 3 to 6) are from Houalef et al. (2026),
   published open access under CC BY 4.0. This page is not the authors' release and uses none of their code or data:
   prices are generated by a seeded model with a daily shape, because the paper's CAISO price data are not shipped
-  here. Assumptions and deviations are listed in README.md.
+  here. Assumptions and deviations are listed in README.md.</p>
 </footer>
 <script src="engine.js"></script>
 <script src="ui.js"></script>

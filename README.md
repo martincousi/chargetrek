@@ -17,7 +17,8 @@ Open `index.html` in a browser (no build step, no libraries; only the Google Fon
 
 - **Grid** (paper, Section 3.1): time runs left to right in 15-minute columns from arrival to departure; SoC runs
   from 0 % (bottom) to 100 % (top) in 1 % rows. The car is the black square; the target at departure is the
-  yellow cell. Charging moves the car up and right, discharging down and right, idling right.
+  yellow cell. Charging moves the car up and right, discharging down and right, idling right. Your path is drawn
+  in navy.
 - **Colours**: each column shows the day-ahead price forecast, min-max scaled over the window: red channel = price,
   green = 255 - red (green cheap, red expensive). Once a step's real-time price is known, the blue channel shows
   the sign of the forecast error (blue = real price above forecast) and the opacity drops with its size.
@@ -36,8 +37,17 @@ Open `index.html` in a browser (no build step, no libraries; only the Google Fon
   1 = optimum).
 - **References for the same level**: charge immediately (the "typical human" rule of Eq. 1), stepwise replanning
   (Section 4.2.2: at each step, a shortest path using the real price now and forecasts afterwards), and the optimum
-  with perfect information (Section 4.2.3), computed by dynamic programming over the time-SoC grid. After departure,
-  `O` draws their paths on the grid.
+  with perfect information (Section 4.2.3), computed by dynamic programming over the time-SoC grid. Their net costs
+  are listed under "References on this instance", with the colour of their paths: optimum `#0072B2`, charge
+  immediately `#E69F00`, stepwise replanning `#CC79A7`. "Show references" (`O`) draws their paths on the grid, at
+  any time, also before departure (the owner's choice for class use: nothing asks for confirmation).
+- **Replays**: "Watch replays" (`W`) opens the replay bar under the status line, at any time. "Watch:" picks your
+  game (the steps played so far), the optimum, charging immediately or stepwise replanning; the bar steps through
+  it 15 minutes at a time: the path on the grid up to the step, the car, the money bar, the real-time prices
+  revealed up to the step (grid colours and price strip), and the running line "Step k of n · time · state of
+  charge · net cost so far · reward". Each replay re-steps the recorded action sequence through the engine
+  (`Replay` in `engine.js`), so its last step equals the values of the stats grids. Changing the "Watch:" item keeps
+  the step, to compare two schedules at the same time. Closing the bar returns to the game as it was.
 - **Levels**: 15 drivers (Table 1 of the paper: arrival, departure, initial and target SoC) times 30 synthetic days.
   A level is fully determined by (driver, day).
 
@@ -51,7 +61,12 @@ Open `index.html` in a browser (no build step, no libraries; only the Google Fon
 | `Z` or `Backspace` | undo |
 | `R` | restart |
 | `N` / `P` (`Enter` after departure) | next / previous day |
-| `O` | show or hide reference paths (after departure) |
+| `W` | watch replays: open or close the replay bar |
+| `O` | show or hide references |
+
+While the replay bar is open, keys act on the replay only: `Space` or `K` play / pause, `Left` / `Right` one step
+back / forward (with `Shift`: 10 steps), `Home` / `End` start / end, `Up` / `Down` previous / next item in
+"Watch:", `-` / `+` slower / faster, `Esc` or `W` close.
 
 Buttons do the same for touch screens. The outlined cells one column ahead show where each action leads; a red
 outline means the target could no longer be met.
@@ -104,11 +119,17 @@ outline means the target could no longer be met.
 
 | File | What |
 | --- | --- |
-| `index.html`, `ui.js` | Page and user interface (canvas drawing, keyboard and button input) |
-| `engine.js` | Rules engine: seeded prices and levels, battery dynamics, game, reference policies, scores. UMD module (browser global `ChargeTrek`, or `require` from node) |
+| `index.html`, `ui.js` | Page and user interface (canvas drawing, keyboard and button input, replay bar). Layout, names, keys and colours follow the conventions shared by the games on the site |
+| `engine.js` | Rules engine: seeded prices and levels, battery dynamics, game, step-by-step replay, reference policies, scores. UMD module (browser global `ChargeTrek`, or `require` from node) |
 | `test/engine_test.js` | Node tests of the engine |
+| `test/ui_test.js` | Node test of the page and `ui.js` with a stub DOM |
 
-Test: `node test/engine_test.js` (node 22). It checks determinism under a seed, SoC bounds under random play on
+Tests: `node test/engine_test.js && node test/ui_test.js` (node 22). The engine test checks determinism under a seed, SoC bounds under random play on
 300 levels, the battery steps, the departure requirement and penalty, cost against a recomputation from the
 action history, a hand-checked 4-step episode, and that the dynamic program meets the target, is never worse than
-charging immediately or stepwise replanning, and matches exhaustive search on short random levels.
+charging immediately or stepwise replanning, matches exhaustive search on short random levels, and that a
+`Replay` matches a game replayed to each step and ends on the final scores. The UI test checks the page layout and
+ids (`watch`, `refs`, `msg`, the replay bar), the exact button labels, the keys `W` and `O` before departure
+without confirmation, that game keys do not touch the game while the replay bar is open and that closing it
+restores the game, play / pause, speed, scrubber, and that each of the four replays ends on the values of the
+stats grids.

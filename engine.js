@@ -191,6 +191,27 @@
     return g;
   }
 
+  // Step-by-step replay of an action sequence: re-steps the actions through a Game and keeps the state after each
+  // 15-minute step. at(k) is the state after k steps (k = 0..n): time step, SoC, net cost and reward so far, and the
+  // SoC path up to that step. The last state is the Game's own final values (final), so a replay ends on the scores.
+  class Replay {
+    constructor(level, actions) {
+      this.level = level;
+      this.actions = actions.slice();
+      this.n = this.actions.length;
+      const g = new Game(level);
+      const snap = () => ({ t: g.t, soc: g.soc, cost: g.cost, reward: g.reward, penalties: g.penalties, done: g.done });
+      this.states = [snap()];
+      for (const a of this.actions) { g.step(a); this.states.push(snap()); }
+      this.final = g;
+    }
+    at(k) {
+      k = Math.max(0, Math.min(this.n, Math.round(k)));
+      return Object.assign({ k, n: this.n, action: k > 0 ? this.actions[k - 1] : null,
+                             path: this.final.path.slice(0, k + 1) }, this.states[k]);
+    }
+  }
+
   // ---------------------------------------------------------------- reference policies
   // Minimum-cost schedule from (t0, s0) to the target at departure, by backward dynamic programming over the
   // integer SoC grid (exact for these dynamics). prices[t] is the price used at step t. Returns null if infeasible.
@@ -239,6 +260,12 @@
     return acts;
   }
 
+  // The three references of the page, as action sequences: optimum with perfect information, charge immediately,
+  // stepwise replanning (in the order of the page's stats grid).
+  function referencePlans(level) {
+    return { opt: optimalPlan(level), imm: immediatePlan(level), step: stepwisePlan(level) };
+  }
+
   // ---------------------------------------------------------------- scores
   // Gain of Eq. (11), in percent: positive when the agent pays less than the baseline.
   function gain(cBase, cAgent) {
@@ -255,7 +282,7 @@
   const api = {
     STEPS_PER_HOUR, KWH_PER_PCT, ETA, SOC_MIN, SOC_MAX, CC_LIMIT, R_FEAS, R_TERMINAL, ACTIONS, DRIVERS,
     mulberry32, mix, priceDay, transition, immediateAction, stepsToGoal, makeLevel, customLevel, reachTable,
-    Game, replay, solve, immediatePlan, optimalPlan, stepwisePlan, gain, normalised,
+    Game, replay, Replay, solve, immediatePlan, optimalPlan, stepwisePlan, referencePlans, gain, normalised,
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.ChargeTrek = api;

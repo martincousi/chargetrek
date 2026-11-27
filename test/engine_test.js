@@ -176,6 +176,48 @@ test("dynamic program agrees with exhaustive search on short random levels", () 
   }
 });
 
+test("Replay: re-steps the actions; each state matches a game replayed to that step; ends on the final scores", () => {
+  const rng = E.mulberry32(5);
+  for (const lv of allLevels.filter((_, i) => i % 7 === 0)) {
+    const plans = E.referencePlans(lv);
+    plans.rand = Array.from({ length: Math.floor(rng() * (lv.T + 1)) }, () => E.ACTIONS[Math.floor(rng() * 3)]);
+    for (const key in plans) {
+      const acts = plans[key], rp = new E.Replay(lv, acts);
+      assert.strictEqual(rp.n, acts.length);
+      const s0 = rp.at(0);
+      assert.strictEqual(s0.t, 0); assert.strictEqual(s0.soc, lv.s0); assert.strictEqual(s0.cost, 0);
+      assert.strictEqual(s0.reward, 0); assert.deepStrictEqual(s0.path, [lv.s0]); assert.strictEqual(s0.action, null);
+      for (const k of [1, Math.floor(acts.length / 2), acts.length - 1]) {
+        if (k < 1 || k > acts.length) continue;
+        const g = E.replay(lv, acts.slice(0, k)), st = rp.at(k);
+        assert.strictEqual(st.t, k); assert.strictEqual(st.soc, g.soc); assert.deepStrictEqual(st.path, g.path);
+        close(st.cost, g.cost, 0); close(st.reward, g.reward, 0); assert.strictEqual(st.action, acts[k - 1]);
+        assert.strictEqual(st.done, k === lv.T);
+      }
+      const end = rp.at(rp.n), g = E.replay(lv, acts);
+      assert.strictEqual(end.cost, g.cost); assert.strictEqual(end.reward, g.reward); assert.strictEqual(end.soc, g.soc);
+      assert.strictEqual(end.cost, rp.final.cost);
+      assert.strictEqual(rp.at(-3).k, 0); assert.strictEqual(rp.at(rp.n + 5).k, rp.n);   // clamped
+    }
+    // the references reach the target at departure; the optimum's replay ends on the dynamic program's value
+    for (const key of ["opt", "imm", "step"]) {
+      const end = new E.Replay(lv, plans[key]).at(lv.T);
+      assert.strictEqual(end.done, true); assert.strictEqual(end.soc, lv.goal);
+    }
+    close(new E.Replay(lv, plans.opt).at(lv.T).cost, E.solve(lv, lv.real, 0, lv.s0).value, 1e-9);
+  }
+});
+
+test("Replay: running cost and SoC agree with an independent recomputation at every step", () => {
+  const lv = E.makeLevel(1, 4), acts = E.referencePlans(lv).step, rp = new E.Replay(lv, acts);
+  let s = lv.s0; const socPath = [s];
+  for (let k = 1; k <= rp.n; k++) {
+    s = E.transition(s, acts[k - 1], lv.goal)[0]; socPath.push(s);
+    assert.strictEqual(rp.at(k).soc, s);
+    close(rp.at(k).cost, recomputeCost(lv, socPath), 1e-9);
+  }
+});
+
 test("scores: Eq. (11) gain and min-max normalisation", () => {
   close(E.gain(10, 5), 100 * 5 / 7.5);
   close(E.gain(-2, 2), -200);
