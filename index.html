@@ -143,15 +143,15 @@
     <div class="help">
       <p><b>Keys:</b> <kbd>&uarr;</kbd> charge, <kbd>&rarr;</kbd> idle, <kbd>&darr;</kbd> discharge,
          <kbd>Z</kbd> undo.</p>
-      <p><b>Grid:</b> time runs left to right in 15-minute columns, state of charge bottom (0 %) to top (100 %).
+      <p><b>The board:</b> Time runs left to right in 15-minute columns, state of charge bottom (0 %) to top (100 %).
          Column colour is the day-ahead forecast: green cheap, red expensive. Once a column's real-time price is known,
          it turns bluish if the real price was above the forecast, and fades as the forecast error grows.
-         The outlined cells ahead are where each action would take you; red outline: the target could no longer be met.</p>
-      <p><b>Battery:</b> charging adds 2 % per step below 80 % and 1 % above; discharging removes 2 % per step and never
+         The outlined cells ahead are where each action would take you; red outline: the target could no longer be met.
+         Battery: charging adds 2 % per step below 80 % and 1 % above; discharging removes 2 % per step and never
          goes below 20 %. A step that would pass the target stops at it. With 80 % efficiency, 1 % stored costs
-         0.94 kWh from the grid and 1 % discharged sells 0.6 kWh.</p>
-      <p><b>Money bar</b> (right of the grid): net cost grows upward in red, net revenue downward in green.</p>
-      <p><b>References:</b> the optimum is the cheapest schedule had all real-time prices been known in advance.
+         0.94 kWh from the grid and 1 % discharged sells 0.6 kWh.
+         Money bar (right of the grid): net cost grows upward in red, net revenue downward in green.</p>
+      <p><b>References:</b> The optimum is the cheapest schedule had all real-time prices been known in advance.
          Charge immediately charges at once up to the target, then idles (the typical driver).
          Stepwise replanning re-plans at each step with the real price now and the forecasts afterwards.</p>
     </div>
