@@ -84,7 +84,7 @@ test("page layout: header without citation, toolbar, board, status, replay bar, 
   assert.strictEqual((header.match(/<p>/g) || []).length, 1, "one paragraph in the header");
   const footer = html.slice(pos("<footer>"), pos("</footer>"));
   assert.ok(footer.includes("doi.org/10.1016/j.apenergy.2026.127853") && footer.includes("independent browser version")
-            && footer.includes("README.md"));
+            && !html.includes("README"));
   // left panel: toolbar row (driver, day, Next day, Restart, Undo), board, #msg, replay bar, then the price chart
   const order = ['id="driver"', 'id="day"', 'id="next"', 'id="restart"', 'id="undo"', 'id="board"', 'id="msg"',
                  'id="replay"', 'id="prices"'].map(pos);
