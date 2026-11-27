@@ -1,4 +1,4 @@
-# ChargeTrek (browser version)
+# ChargeTrek
 
 A browser game in which you schedule the home charging of one electric vehicle (EV) with vehicle-to-grid (V2G):
 every 15 minutes between arrival and departure you charge, stay idle, or discharge (sell energy back to the grid),

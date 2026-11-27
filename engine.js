@@ -1,4 +1,4 @@
-// Rules engine of ChargeTrek (browser version), after Houalef et al. (2026), Applied Energy 414:127853.
+// Rules engine of ChargeTrek, after Houalef et al. (2026), Applied Energy 414:127853.
 // Pure and deterministic: a level is fully determined by (driver, day) through seeded random number generators.
 // Units: state of charge (SoC) in integer percent, time in 15-minute steps, prices in $/kWh, energy in kWh.
 (function (root) {

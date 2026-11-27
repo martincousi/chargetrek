@@ -1,4 +1,4 @@
-// User interface of ChargeTrek (browser version). Rules live in engine.js; this file only draws and dispatches actions.
+// User interface of ChargeTrek. Rules live in engine.js; this file only draws and dispatches actions.
 (function () {
   "use strict";
   const E = window.ChargeTrek;
